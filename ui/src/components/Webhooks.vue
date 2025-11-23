@@ -4,17 +4,17 @@
     <button @click="reload">Reload</button>
 
     <h3 style="margin-top:12px;">Add webhook</h3>
-    <input v-model="url" placeholder="https://yourapp/webhook/fw" />
+    <input v-model="url" placeholder="https://yourapp/webhook/fw"/>
 
     <div class="row">
-      <label><input type="checkbox" v-model="evtUploaded" /> firmware.uploaded</label>
-      <label><input type="checkbox" v-model="evtDeleted" /> firmware.deleted</label>
-      <label><input type="checkbox" v-model="enabled" /> enabled</label>
+      <label><input type="checkbox" v-model="evtUploaded"/> firmware.uploaded</label>
+      <label><input type="checkbox" v-model="evtDeleted"/> firmware.deleted</label>
+      <label><input type="checkbox" v-model="enabled"/> enabled</label>
     </div>
 
     <button @click="create">Create</button>
 
-    <hr />
+    <hr/>
 
     <ul v-if="hooks.length">
       <li v-for="h in hooks" :key="h.id" style="margin:8px 0;">
@@ -29,16 +29,16 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from "vue";
-import { WebhookAPI } from "../api";
+<script setup lang="ts">
+import {ref, onMounted} from "vue";
+import {WebhookAPI, type WebhookDTO} from "../api";
 
-const hooks = ref([]);
+const hooks = ref<WebhookDTO[]>([]);
 
-const url = ref("");
-const evtUploaded = ref(true);
-const evtDeleted = ref(false);
-const enabled = ref(true);
+const url = ref<string>("");
+const evtUploaded = ref<boolean>(true);
+const evtDeleted = ref<boolean>(false);
+const enabled = ref<boolean>(true);
 
 onMounted(reload);
 
@@ -47,9 +47,10 @@ async function reload() {
 }
 
 async function create() {
-  const events = [];
+  const events: string[] = [];
   if (evtUploaded.value) events.push("firmware.uploaded");
   if (evtDeleted.value) events.push("firmware.deleted");
+
   if (!url.value.trim() || events.length === 0) return;
 
   await WebhookAPI.create({
@@ -57,11 +58,12 @@ async function create() {
     events,
     enabled: enabled.value
   });
+
   url.value = "";
   await reload();
 }
 
-async function remove(id) {
+async function remove(id: number) {
   if (!confirm(`Delete webhook #${id}?`)) return;
   await WebhookAPI.remove(id);
   await reload();

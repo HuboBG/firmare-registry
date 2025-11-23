@@ -3,9 +3,9 @@
     <h2>Firmware Types</h2>
 
     <div class="row">
-      <input v-model="newType" placeholder="e.g. firmware1" @keyup.enter="addType" />
+      <input v-model="newType" placeholder="e.g. firmware1" @keyup.enter="addType"/>
       <button @click="addType">Add</button>
-      <button @click="reload">Reload from API</button>
+      <button @click="reload">Reload</button>
     </div>
 
     <ul v-if="types.length">
@@ -18,18 +18,18 @@
     <p v-else class="small">No types found yet. Upload a firmware or add manually.</p>
 
     <p class="small">
-      Types are inferred from existing uploads. “Reload from API” discovers them by scanning known types list locally.
+      Types are stored locally (localStorage). API doesn't yet expose a types endpoint.
     </p>
   </div>
 </template>
 
-<script setup>
-import { ref } from "vue";
+<script setup lang="ts">
+import {ref} from "vue";
 
-// Simple UI-side type list. Since API doesn't have /types endpoint,
-// we keep a local set that users can manage.
-const types = ref(JSON.parse(localStorage.getItem("fw_types") || "[]"));
-const newType = ref("");
+// const emit = defineEmits<{ (e: "selectType", t: string): void }>();
+
+const types = ref<string[]>(JSON.parse(localStorage.getItem("fw_types") || "[]"));
+const newType = ref<string>("");
 
 function persist() {
   localStorage.setItem("fw_types", JSON.stringify(types.value));
@@ -45,13 +45,14 @@ function addType() {
   newType.value = "";
 }
 
-async function reload() {
-  // There is no API "list types" currently. 
-  // We just re-load local storage for now (future: add /types).
+function reload() {
   types.value = JSON.parse(localStorage.getItem("fw_types") || "[]");
 }
 </script>
 
 <style scoped>
-.typeBtn { text-align:left; width: 100%; }
+.typeBtn {
+  text-align: left;
+  width: 100%;
+}
 </style>

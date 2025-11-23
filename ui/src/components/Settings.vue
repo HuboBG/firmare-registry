@@ -2,7 +2,7 @@
   <div class="card">
     <h2>Settings</h2>
     <p class="small">
-      UI uses API keys from env vars. Behind nginx BasicAuth, this is usually enough.
+      UI uses API keys from env vars. Put this UI behind nginx BasicAuth if desired.
     </p>
 
     <h3>Keycloak / OIDC (planned)</h3>

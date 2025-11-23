@@ -28,16 +28,17 @@
   </div>
 </template>
 
-<script setup>
-import { ref, watch } from "vue";
-import { FirmwareAPI } from "../api";
+<script setup lang="ts">
+import {ref, watch} from "vue";
+import {FirmwareAPI, type FirmwareDTO} from "../api";
 
-const props = defineProps({ type: String });
-const versions = ref([]);
-const latest = ref(null);
-const loading = ref(false);
+const props = defineProps<{ type: string }>();
 
-watch(() => props.type, reload, { immediate: true });
+const versions = ref<FirmwareDTO[]>([]);
+const latest = ref<FirmwareDTO | null>(null);
+const loading = ref<boolean>(false);
+
+watch(() => props.type, reload, {immediate: true});
 
 async function reload() {
   if (!props.type) return;
@@ -45,7 +46,7 @@ async function reload() {
   latest.value = null;
   try {
     versions.value = await FirmwareAPI.list(props.type);
-  } catch (e) {
+  } catch {
     versions.value = [];
   } finally {
     loading.value = false;
@@ -56,23 +57,28 @@ async function loadLatest() {
   latest.value = null;
   try {
     latest.value = await FirmwareAPI.latest(props.type);
-  } catch {}
+  } catch {
+  }
 }
 
-async function remove(version) {
+async function remove(version: string) {
   if (!confirm(`Delete ${props.type} ${version}?`)) return;
   await FirmwareAPI.remove(props.type, version);
   await reload();
 }
 
-function formatSize(n) {
-  if (!n && n !== 0) return "-";
+function formatSize(n: number | undefined) {
+  if (n == null) return "-";
   const kb = n / 1024;
   if (kb < 1024) return kb.toFixed(1) + " KB";
   return (kb / 1024).toFixed(2) + " MB";
 }
 
-function formatDate(d) {
-  try { return new Date(d).toLocaleString(); } catch { return d; }
+function formatDate(d: string) {
+  try {
+    return new Date(d).toLocaleString();
+  } catch {
+    return d;
+  }
 }
 </script>

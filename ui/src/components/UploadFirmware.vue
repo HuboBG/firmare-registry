@@ -3,9 +3,9 @@
     <h2>Upload Firmware ({{ type }})</h2>
 
     <label>Version (semver)</label>
-    <input v-model="version" placeholder="1.0.0" />
+    <input v-model="version" placeholder="1.0.0"/>
 
-    <input type="file" @change="onFile" />
+    <input type="file" @change="onFile"/>
     <button :disabled="!file || !version || uploading" @click="upload">
       {{ uploading ? "Uploading…" : "Upload" }}
     </button>
@@ -20,26 +20,29 @@
   </div>
 </template>
 
-<script setup>
-import { ref } from "vue";
-import { FirmwareAPI } from "../api";
+<script setup lang="ts">
+import {ref} from "vue";
+import {FirmwareAPI, type FirmwareDTO} from "../api";
 
-const props = defineProps({ type: String });
-const emit = defineEmits(["uploaded"]);
+const props = defineProps<{ type: string }>();
+const emit = defineEmits<{ (e: "uploaded", dto: FirmwareDTO): void }>();
 
-const version = ref("");
-const file = ref(null);
-const result = ref(null);
-const error = ref("");
-const uploading = ref(false);
+const version = ref<string>("");
+const file = ref<File | null>(null);
+const result = ref<FirmwareDTO | null>(null);
+const error = ref<string>("");
+const uploading = ref<boolean>(false);
 
-function onFile(e) {
-  file.value = e.target.files?.[0] || null;
+function onFile(e: Event) {
+  const input = e.target as HTMLInputElement;
+  file.value = input.files?.[0] ?? null;
 }
 
 async function upload() {
   error.value = "";
   result.value = null;
+  if (!file.value) return;
+
   uploading.value = true;
   try {
     const r = await FirmwareAPI.upload(props.type, version.value.trim(), file.value);
@@ -47,7 +50,7 @@ async function upload() {
     emit("uploaded", r);
     version.value = "";
     file.value = null;
-  } catch (e) {
+  } catch (e: any) {
     error.value = e?.response?.data || e?.message || "Upload failed";
   } finally {
     uploading.value = false;
