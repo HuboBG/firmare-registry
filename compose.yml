@@ -1,0 +1,55 @@
+services:
+  api:
+    build:
+      context: ../firmware-registry-api
+    container_name: firmware-registry-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # override internal storage paths to mounted volumes
+      - FW_STORAGE_DIR=/data/firmware
+      - FW_DB_PATH=/data/db/firmware-registry.db
+      - FW_PUBLIC_BASE_URL=${FW_PUBLIC_BASE_URL}
+    volumes:
+      - fw_data:/data/firmware
+      - fw_db:/data/db
+    expose:
+      - "8080"
+
+  ui:
+    build:
+      context: ../firmware-registry-ui
+    container_name: firmware-registry-ui
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+      - VITE_ADMIN_KEY=${VITE_ADMIN_KEY}
+      - VITE_DEVICE_KEY=${VITE_DEVICE_KEY}
+    expose:
+      - "5173"
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: firmware-registry-nginx
+    restart: unless-stopped
+    depends_on:
+      - api
+      - ui
+    ports:
+      - "80:80"
+      # - "443:443" # enable if you add TLS certs
+    environment:
+      - NGINX_BASIC_AUTH_USER=${NGINX_BASIC_AUTH_USER}
+      - NGINX_BASIC_AUTH_PASS=${NGINX_BASIC_AUTH_PASS}
+    volumes:
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx/htpasswd.sh:/docker-entrypoint.d/99-htpasswd.sh:ro
+      # For TLS, uncomment and put certs here:
+      # - ./nginx/certs:/etc/nginx/certs:ro
+
+volumes:
+  fw_data:
+  fw_db:
