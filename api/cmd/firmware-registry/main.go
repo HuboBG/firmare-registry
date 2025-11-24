@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -47,10 +48,33 @@ func main() {
 		Retries:    cfg.Webhooks.Retries,
 	}
 
+	// Initialize OIDC verifier if enabled
+	var oidcVerifier *auth.OIDCVerifier
+	if cfg.OIDC.Enabled {
+		ctx := context.Background()
+		var err error
+		oidcVerifier, err = auth.NewOIDCVerifier(
+			ctx,
+			cfg.OIDC.IssuerURL,
+			cfg.OIDC.ClientID,
+			cfg.OIDC.Audience,
+			cfg.OIDC.AdminRole,
+			cfg.OIDC.DeviceRole,
+		)
+		if err != nil {
+			log.Printf("WARNING: OIDC enabled but failed to initialize: %v", err)
+			log.Println("Falling back to API key authentication only")
+			cfg.OIDC.Enabled = false
+		} else {
+			log.Println("OIDC authentication enabled with issuer:", cfg.OIDC.IssuerURL)
+		}
+	}
+
 	authHandler := auth.Auth{
-		AdminKey:    cfg.AdminKey,
-		DeviceKey:   cfg.DeviceKey,
-		OIDCEnabled: cfg.OIDC.Enabled,
+		AdminKey:     cfg.AdminKey,
+		DeviceKey:    cfg.DeviceKey,
+		OIDCEnabled:  cfg.OIDC.Enabled,
+		OIDCVerifier: oidcVerifier,
 	}
 
 	fwHandler := &handlers.FirmwareHandler{

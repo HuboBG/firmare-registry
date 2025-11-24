@@ -7,60 +7,9 @@ on:
 
 jobs:
 
-  build-api:
-    name: API
+  build-and-push-api:
+    name: Build & Push API
     runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Try API build (no push)
-        uses: docker/build-push-action@v5
-        with:
-          context: ./api
-          file: ./api/Dockerfile
-          platforms: linux/amd64
-          push: false
-          load: true
-          tags: test-api:${{ github.sha }}
-
-
-  build-ui:
-    name: UI
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Try UI build (no push)
-        uses: docker/build-push-action@v5
-        with:
-          context: ./ui
-          file: ./ui/Dockerfile
-          platforms: linux/amd64
-          push: false
-          load: true
-          tags: test-ui:${{ github.sha }}
-
-
-  docker-publish:
-    name: Build & Push Multi-Arch Images
-    runs-on: ubuntu-latest
-    needs:
-      - build-api
-      - build-ui
 
     steps:
       - uses: actions/checkout@v4
@@ -78,8 +27,7 @@ jobs:
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
-      # API IMAGE
-      - name: Build & Push API
+      - name: Build & Push API Multi-Arch
         uses: docker/build-push-action@v5
         with:
           context: ./api
@@ -90,8 +38,28 @@ jobs:
             registry.nimahosts.com/hubo/firmware-registry-api:${{ github.ref_name }}
             registry.nimahosts.com/hubo/firmware-registry-api:latest
 
-      # UI IMAGE
-      - name: Build & Push UI
+
+  build-and-push-ui:
+    name: Build & Push UI
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Private Registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.nimahosts.com
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build & Push UI Multi-Arch
         uses: docker/build-push-action@v5
         with:
           context: ./ui
@@ -101,3 +69,78 @@ jobs:
           tags: |
             registry.nimahosts.com/hubo/firmware-registry-ui:${{ github.ref_name }}
             registry.nimahosts.com/hubo/firmware-registry-ui:latest
+
+
+  release-complete:
+    name: Release Complete
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - build-and-push-api
+      - build-and-push-ui
+
+    steps:
+      - name: Check Build Status
+        id: check
+        run: |
+          if [[ "${{ needs.build-and-push-api.result }}" == "success" && "${{ needs.build-and-push-ui.result }}" == "success" ]]; then
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Summary (Success)
+        if: steps.check.outputs.success == 'true'
+        run: |
+          echo "✅ API image built and pushed successfully"
+          echo "✅ UI image built and pushed successfully"
+          echo "🎉 Release ${{ github.ref_name }} complete!"
+
+      - name: Summary (Failure)
+        if: steps.check.outputs.success == 'false'
+        run: |
+          echo "❌ Build failed"
+          echo "API: ${{ needs.build-and-push-api.result }}"
+          echo "UI: ${{ needs.build-and-push-ui.result }}"
+
+      - name: Send Slack Notification (Failure)
+        if: steps.check.outputs.success == 'false'
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "channel": "notifications",
+              "text": "*❌ Build of Firmware Registry (${{ github.ref_name }}) DID NOT complete successfully.*\n*Status:* failure\n*Build URL:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Build>",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "❌ Build of Firmware Registry (${{ github.ref_name }}) DID NOT complete successfully.\n*API Build:* ${{ needs.build-and-push-api.result }}\n*UI Build:* ${{ needs.build-and-push-ui.result }}\n*Build URL:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Build>"
+                  }
+                }
+              ]
+            }
+
+      - name: Send Slack Notification (Success)
+        if: steps.check.outputs.success == 'true'
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "channel": "notifications",
+              "text": "*✅ Release of Firmware Registry (${{ github.ref_name }}) completed successfully.*\n*Status:* success\n*Build URL:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Build>",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "✅ Release of Firmware Registry (${{ github.ref_name }}) completed successfully.\n*API Image:* registry.nimahosts.com/hubo/firmware-registry-api:${{ github.ref_name }}\n*UI Image:* registry.nimahosts.com/hubo/firmware-registry-ui:${{ github.ref_name }}\n*Build URL:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Build>"
+                  }
+                }
+              ]
+            }

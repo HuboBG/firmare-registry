@@ -29,9 +29,14 @@ RUN rm -rf /usr/share/nginx/html/*
 # Copy built UI from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
+# Copy entrypoint script for runtime config
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
 # Optional: custom nginx config (good for SPA routing)
 # COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]

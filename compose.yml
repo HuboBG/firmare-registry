@@ -1,5 +1,6 @@
 services:
   api:
+    image: registry.nimahosts.com/hubo/firmware-registry-api:latest
     build:
       context: ./api
     container_name: firmware-registry-api
@@ -13,6 +14,7 @@ services:
       - "8080"
 
   ui:
+    image: registry.nimahosts.com/hubo/firmware-registry-ui:latest
     build:
       context: ./ui
     container_name: firmware-registry-ui

@@ -1,16 +1,31 @@
 import axios from "axios";
+import { runtimeConfig } from "./runtime-config";
+import { getAccessToken } from "./auth";
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || "",
+    baseURL: runtimeConfig.API_BASE_URL || "",
     timeout: 20000
 });
 
 const adminHeaders = () => {
-    const k = import.meta.env.VITE_ADMIN_KEY;
+    // If OIDC is enabled, use Bearer token
+    if (runtimeConfig.OIDC_ENABLED) {
+        const token = getAccessToken();
+        return token ? { "Authorization": `Bearer ${token}` } : {};
+    }
+    // Fall back to API key
+    const k = runtimeConfig.ADMIN_KEY;
     return k ? {"X-Admin-Key": k} : {};
 };
+
 const deviceHeaders = () => {
-    const k = import.meta.env.VITE_DEVICE_KEY;
+    // If OIDC is enabled, use Bearer token
+    if (runtimeConfig.OIDC_ENABLED) {
+        const token = getAccessToken();
+        return token ? { "Authorization": `Bearer ${token}` } : {};
+    }
+    // Fall back to API key
+    const k = runtimeConfig.DEVICE_KEY;
     return k ? {"X-Device-Key": k} : {};
 };
 
