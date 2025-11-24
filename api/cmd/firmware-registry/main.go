@@ -65,7 +65,8 @@ func main() {
 	}
 
 	router := api.NewRouter(fwHandler, whHandler)
+	handler := api.CORSMiddleware(router)
 
 	log.Println("Firmware Registry API listening on", cfg.ListenAddr)
-	log.Fatal(http.ListenAndServe(cfg.ListenAddr, router))
+	log.Fatal(http.ListenAndServe(cfg.ListenAddr, handler))
 }

@@ -1,7 +1,7 @@
 services:
   api:
     build:
-      context: ../firmware-registry-api
+      context: ./api
     container_name: firmware-registry-api
     restart: unless-stopped
     env_file:
@@ -19,7 +19,7 @@ services:
 
   ui:
     build:
-      context: ../firmware-registry-ui
+      context: ./ui
     container_name: firmware-registry-ui
     restart: unless-stopped
     env_file:

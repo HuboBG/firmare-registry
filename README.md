@@ -1,8 +1,8 @@
 # Firmware Registry Deploy (Docker Compose)
 
 This folder runs:
-- firmware-registry-api (Go)
-- firmware-registry-ui (Vue dev server)
+- api (Go)
+- ui (Vue dev server)
 - nginx reverse proxy (TLS optional)
 
 ## Quick start
