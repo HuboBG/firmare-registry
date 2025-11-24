@@ -8,8 +8,12 @@ WORKDIR /app
 ENV CGO_ENABLED=1
 ENV GOOS=linux
 
-# Install sqlite3 build deps
-RUN apt-get update && apt-get install -y gcc g++ make sqlite3 libsqlite3-dev
+# Install sqlite3 build deps + cross-compilation toolchains
+RUN apt-get update && apt-get install -y \
+    gcc g++ make sqlite3 libsqlite3-dev \
+    gcc-aarch64-linux-gnu \
+    gcc-arm-linux-gnueabihf \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -20,7 +24,13 @@ COPY . .
 ARG TARGETOS
 ARG TARGETARCH
 
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=1 \
+# Set CC based on target architecture for cross-compilation
+RUN case "$TARGETARCH" in \
+        arm64) export CC=aarch64-linux-gnu-gcc ;; \
+        arm) export CC=arm-linux-gnueabihf-gcc ;; \
+        *) export CC=gcc ;; \
+    esac && \
+    GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=1 \
     go build -o firmware-registry-api ./cmd/firmware-registry
 
 # ============================
