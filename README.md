@@ -2,13 +2,15 @@
 
 This folder runs:
 - api (Go)
-- ui (Vue dev server)
+- ui (Vue nginx prod server)
 - nginx reverse proxy (TLS optional)
 
 ## Quick start
-1. Copy `.env.example` to `.env` and edit keys/paths
-2. `docker compose up -d --build`
-3. Open http://localhost (UI) or http://localhost/api/health
+1. Copy `.env.example` to `.env` and configure it as needed
+2. Copy `api/.env.example` to `api/.env` and configure it as needed
+3. Copy `ui/.env.example` to `api/.env` and configure it as needed
+4. `docker compose up -d --build`
+5. Open http://localhost:8080 (UI) or http://localhost:8080/api/health
 
 ## Notes
 - API stores firmware binaries in volume `fw_data`
