@@ -51,7 +51,8 @@ See [../SWAGGER.md](../SWAGGER.md) for complete documentation.
 - Admin endpoints require header: `X-Admin-Key: <FW_ADMIN_KEY>`
 - Device endpoints require header: `X-Device-Key: <FW_DEVICE_KEY>`
 - **OIDC/JWT** (optional): `Authorization: Bearer <token>`
-- **IP Whitelist** (optional): IPs listed in `FW_NOAUTH_IPS` bypass all authentication
+- **IP Whitelist** (optional): IPs/subnets listed in `FW_NOAUTH_IPS` bypass all authentication
+  - Supports `X-Forwarded-For` header (for reverse proxy setups)
 
 ## Endpoints
 - GET  `/api/health`

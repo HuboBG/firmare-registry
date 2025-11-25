@@ -19,24 +19,47 @@ type Auth struct {
 	OIDCVerifier  *OIDCVerifier
 }
 
-// isIPWhitelisted checks if the remote IP is in the no-auth whitelist (IPs or subnets)
-func (a Auth) isIPWhitelisted(remoteAddr string) bool {
+// getClientIP extracts the client IP from the request, checking X-Forwarded-For first
+func getClientIP(r *http.Request) (net.IP, string) {
+	// Check X-Forwarded-For header first (used by reverse proxies)
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
+		// The first one is the original client IP
+		ips := strings.Split(xff, ",")
+		clientIPStr := strings.TrimSpace(ips[0])
+
+		clientIP := net.ParseIP(clientIPStr)
+		if clientIP != nil {
+			return clientIP, clientIPStr
+		}
+		log.Warn().Str("x_forwarded_for", xff).Msg("Failed to parse X-Forwarded-For IP")
+	}
+
+	// Fall back to RemoteAddr
+	// Extract IP from "IP:port" format using net.SplitHostPort
+	// This properly handles both IPv4 (127.0.0.1:8080) and IPv6 ([::1]:8080)
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		// If splitting fails, use the whole address (might not have a port)
+		host = r.RemoteAddr
+	}
+
+	clientIP := net.ParseIP(host)
+	return clientIP, host
+}
+
+// isIPWhitelisted checks if the client IP is in the no-auth whitelist (IPs or subnets)
+func (a Auth) isIPWhitelisted(r *http.Request) bool {
 	if len(a.NoAuthIPs) == 0 && len(a.NoAuthSubnets) == 0 {
 		return false
 	}
 
-	// Extract IP from "IP:port" format using net.SplitHostPort
-	// This properly handles both IPv4 (127.0.0.1:8080) and IPv6 ([::1]:8080)
-	host, _, err := net.SplitHostPort(remoteAddr)
-	if err != nil {
-		// If splitting fails, use the whole address (might not have a port)
-		host = remoteAddr
-	}
-
-	// Parse the client IP
-	clientIP := net.ParseIP(host)
+	clientIP, clientIPStr := getClientIP(r)
 	if clientIP == nil {
-		log.Warn().Str("remote_addr", remoteAddr).Msg("Failed to parse client IP")
+		log.Warn().
+			Str("remote_addr", r.RemoteAddr).
+			Str("x_forwarded_for", r.Header.Get("X-Forwarded-For")).
+			Msg("Failed to parse client IP")
 		return false
 	}
 
@@ -44,6 +67,10 @@ func (a Auth) isIPWhitelisted(remoteAddr string) bool {
 	for _, allowedIP := range a.NoAuthIPs {
 		// Compare IPs (this handles IPv4/IPv6 equivalence like 127.0.0.1 == ::1)
 		if clientIP.Equal(allowedIP) {
+			log.Debug().
+				Str("client_ip", clientIPStr).
+				Str("matched_ip", allowedIP.String()).
+				Msg("Client IP matched whitelist")
 			return true
 		}
 	}
@@ -51,6 +78,10 @@ func (a Auth) isIPWhitelisted(remoteAddr string) bool {
 	// Check against subnets (CIDR ranges)
 	for _, subnet := range a.NoAuthSubnets {
 		if subnet.Contains(clientIP) {
+			log.Debug().
+				Str("client_ip", clientIPStr).
+				Str("matched_subnet", subnet.String()).
+				Msg("Client IP matched subnet whitelist")
 			return true
 		}
 	}
@@ -61,11 +92,14 @@ func (a Auth) isIPWhitelisted(remoteAddr string) bool {
 func (a Auth) RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Check if IP is whitelisted (bypass all authentication)
-		if a.isIPWhitelisted(r.RemoteAddr) {
+		if a.isIPWhitelisted(r) {
+			clientIP, _ := getClientIP(r)
 			log.Debug().
 				Str("path", r.URL.Path).
 				Str("method", r.Method).
+				Str("client_ip", clientIP.String()).
 				Str("remote_addr", r.RemoteAddr).
+				Str("x_forwarded_for", r.Header.Get("X-Forwarded-For")).
 				Str("auth_type", "ip_whitelist").
 				Str("role", "admin").
 				Msg("Admin authentication bypassed via IP whitelist")
@@ -112,11 +146,14 @@ func (a Auth) RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
 func (a Auth) RequireDevice(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Check if IP is whitelisted (bypass all authentication)
-		if a.isIPWhitelisted(r.RemoteAddr) {
+		if a.isIPWhitelisted(r) {
+			clientIP, _ := getClientIP(r)
 			log.Debug().
 				Str("path", r.URL.Path).
 				Str("method", r.Method).
+				Str("client_ip", clientIP.String()).
 				Str("remote_addr", r.RemoteAddr).
+				Str("x_forwarded_for", r.Header.Get("X-Forwarded-For")).
 				Str("auth_type", "ip_whitelist").
 				Str("role", "device").
 				Msg("Device authentication bypassed via IP whitelist")
