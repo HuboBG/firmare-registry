@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"firmware-registry-api/internal/api"
 	"firmware-registry-api/internal/api/handlers"
@@ -127,9 +128,26 @@ func main() {
 		}
 	}
 
+	// Parse comma-separated NoAuthIPs
+	var noAuthIPs []string
+	if cfg.NoAuthIPs != "" {
+		for _, ip := range strings.Split(cfg.NoAuthIPs, ",") {
+			ip = strings.TrimSpace(ip)
+			if ip != "" {
+				noAuthIPs = append(noAuthIPs, ip)
+			}
+		}
+		if len(noAuthIPs) > 0 {
+			log.Info().
+				Strs("ips", noAuthIPs).
+				Msg("No-auth IP whitelist configured")
+		}
+	}
+
 	authHandler := auth.Auth{
 		AdminKey:     cfg.AdminKey,
 		DeviceKey:    cfg.DeviceKey,
+		NoAuthIPs:    noAuthIPs,
 		OIDCEnabled:  cfg.OIDC.Enabled,
 		OIDCVerifier: oidcVerifier,
 	}

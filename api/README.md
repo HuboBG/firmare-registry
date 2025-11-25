@@ -51,6 +51,7 @@ See [../SWAGGER.md](../SWAGGER.md) for complete documentation.
 - Admin endpoints require header: `X-Admin-Key: <FW_ADMIN_KEY>`
 - Device endpoints require header: `X-Device-Key: <FW_DEVICE_KEY>`
 - **OIDC/JWT** (optional): `Authorization: Bearer <token>`
+- **IP Whitelist** (optional): IPs listed in `FW_NOAUTH_IPS` bypass all authentication
 
 ## Endpoints
 - GET  `/api/health`
@@ -76,6 +77,7 @@ Use env vars or YAML (set `FW_CONFIG_FILE=/path/config.yaml`).
 **Key environment variables:**
 - `FW_LISTEN_ADDR` - Server address (default: `:8080`)
 - `FW_ADMIN_KEY` / `FW_DEVICE_KEY` - API authentication
+- `FW_NOAUTH_IPS` - Comma-separated IP addresses that bypass authentication (supports IPv4 and IPv6, e.g., `127.0.0.1,::1,192.168.1.100`)
 - `FW_STORAGE_DIR` - Firmware binary storage path
 - `FW_DB_PATH` - SQLite database path
 - `FW_LOG_LEVEL` - Logging level (trace, debug, info, warn, error)

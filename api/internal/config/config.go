@@ -20,6 +20,9 @@ type Config struct {
 	AdminKey  string `yaml:"admin_key"`
 	DeviceKey string `yaml:"device_key"`
 
+	// NoAuthIPs contains comma-separated IP addresses that bypass authentication
+	NoAuthIPs string `yaml:"noauth_ips"`
+
 	MaxUploadMB int64 `yaml:"max_upload_mb"`
 
 	// Logging configuration
@@ -107,6 +110,7 @@ func applyEnv(cfg *Config) {
 	setStr(&cfg.DBPath, "FW_DB_PATH")
 	setStr(&cfg.AdminKey, "FW_ADMIN_KEY")
 	setStr(&cfg.DeviceKey, "FW_DEVICE_KEY")
+	setStr(&cfg.NoAuthIPs, "FW_NOAUTH_IPS")
 
 	if v := os.Getenv("FW_MAX_UPLOAD_MB"); v != "" {
 		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {

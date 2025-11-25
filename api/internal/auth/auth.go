@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"strings"
 
@@ -12,12 +13,64 @@ import (
 type Auth struct {
 	AdminKey     string
 	DeviceKey    string
+	NoAuthIPs    []string // IP addresses that bypass authentication
 	OIDCEnabled  bool
 	OIDCVerifier *OIDCVerifier
 }
 
+// isIPWhitelisted checks if the remote IP is in the no-auth whitelist
+func (a Auth) isIPWhitelisted(remoteAddr string) bool {
+	if len(a.NoAuthIPs) == 0 {
+		return false
+	}
+
+	// Extract IP from "IP:port" format using net.SplitHostPort
+	// This properly handles both IPv4 (127.0.0.1:8080) and IPv6 ([::1]:8080)
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		// If splitting fails, use the whole address (might not have a port)
+		host = remoteAddr
+	}
+
+	// Parse the client IP
+	clientIP := net.ParseIP(host)
+	if clientIP == nil {
+		log.Warn().Str("remote_addr", remoteAddr).Msg("Failed to parse client IP")
+		return false
+	}
+
+	// Check against whitelist
+	for _, allowedIP := range a.NoAuthIPs {
+		// Parse the whitelist IP
+		whitelistIP := net.ParseIP(strings.TrimSpace(allowedIP))
+		if whitelistIP == nil {
+			log.Warn().Str("whitelist_ip", allowedIP).Msg("Invalid IP in whitelist")
+			continue
+		}
+
+		// Compare IPs (this handles IPv4/IPv6 equivalence like 127.0.0.1 == ::1)
+		if clientIP.Equal(whitelistIP) {
+			return true
+		}
+	}
+	return false
+}
+
 func (a Auth) RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Check if IP is whitelisted (bypass all authentication)
+		if a.isIPWhitelisted(r.RemoteAddr) {
+			log.Debug().
+				Str("path", r.URL.Path).
+				Str("method", r.Method).
+				Str("remote_addr", r.RemoteAddr).
+				Str("auth_type", "ip_whitelist").
+				Str("role", "admin").
+				Msg("Admin authentication bypassed via IP whitelist")
+			next(w, r)
+			return
+		}
+
 		// If OIDC is enabled, try JWT first, then fall back to API key
 		if a.OIDCEnabled && a.OIDCVerifier != nil {
 			if a.verifyJWT(w, r, a.OIDCVerifier.adminRole, "admin") {
@@ -56,6 +109,19 @@ func (a Auth) RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
 
 func (a Auth) RequireDevice(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Check if IP is whitelisted (bypass all authentication)
+		if a.isIPWhitelisted(r.RemoteAddr) {
+			log.Debug().
+				Str("path", r.URL.Path).
+				Str("method", r.Method).
+				Str("remote_addr", r.RemoteAddr).
+				Str("auth_type", "ip_whitelist").
+				Str("role", "device").
+				Msg("Device authentication bypassed via IP whitelist")
+			next(w, r)
+			return
+		}
+
 		// If OIDC is enabled, try JWT first, then fall back to API key
 		if a.OIDCEnabled && a.OIDCVerifier != nil {
 			if a.verifyJWT(w, r, a.OIDCVerifier.deviceRole, "device") {
